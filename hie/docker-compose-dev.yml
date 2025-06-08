@@ -1,0 +1,165 @@
+version: "3"
+networks:
+    openhim:
+    hapi-fhir:
+    mediators:
+    cloudbuild: 
+        external: true
+
+
+services:
+    mongo:
+        container_name: openhim-mongo
+        image: mongo:4.0
+        networks:
+            - openhim
+        volumes:
+            - chanjo-mongodb-data:/data/db
+        restart: unless-stopped
+
+    hapi-fhir-postgres:
+        container_name: hapi-fhir-postgres
+        image: postgres:14-alpine
+        restart: always
+        networks:
+            - hapi-fhir
+            - cloudbuild
+        environment:
+            POSTGRES_USER: postgres
+            POSTGRES_DB: hapi
+            POSTGRES_PASSWORD: hapi123
+        volumes:
+            - 'hapi-fhir-postgres:/var/lib/postgresql/data'
+
+    hapi-fhir-jpa:
+        image: hapiproject/hapi:latest
+        container_name: hapi-fhir-jpa
+        restart: unless-stopped
+        networks:
+            - hapi-fhir
+            - cloudbuild
+        depends_on:
+            - hapi-fhir-postgres
+        ports:
+            - "8888:8080"
+        volumes:
+            - "./hapi-fhir:/hapi"
+        environment:
+            SPRING_CONFIG_LOCATION: /hapi/application.yaml
+
+    openhim-core:
+        container_name: openhim-core
+        restart: unless-stopped
+        image: jembi/openhim-core:latest
+        env_file:
+            - .env
+        ports:
+            - "8080:8080"
+            # - "5000:5000"
+            - "5001:5001"
+            # - "5050:5050"
+            # - "5051:5051"
+            # - "5052:5052"
+            # - "7788:7788"
+        depends_on:
+            - mongo
+        networks:
+            - openhim
+            - hapi-fhir
+            - mediators
+        healthcheck:
+            test: "curl -sSk https://openhim-core:8080/heartbeat || exit 1"
+            interval: 30s
+            timeout: 30s
+            retries: 3
+
+    openhim-console:
+        container_name: openhim-console
+        image: jembi/openhim-console:latest
+        depends_on:
+            - openhim-core
+        restart: unless-stopped
+        ports:
+            - "9000:80"
+        networks:
+            - openhim
+        healthcheck:
+            test: "curl -sS http://openhim-console || exit 1"
+            interval: 30s
+            timeout: 30s
+            retries: 3
+        volumes:
+            - ./default.json:/usr/share/nginx/html/config/default.json:ro
+            - /etc/ssl/crt:/etc/nginx/certs
+
+    ddcc-mediators:
+        depends_on:
+            - openhim-core
+            - hapi-fhir-jpa
+        container_name: ddcc-mediators
+        build:
+            context: ddcc-chanjo-mediators
+            dockerfile: Dockerfile.dev
+        restart: unless-stopped
+        networks:
+            - openhim
+            - hapi-fhir
+        ports:
+            - "8084:3000"
+        env_file:
+            - ddcc-chanjo-mediators/.env
+        volumes:
+            - ./ddcc-chanjo-mediators:/usr/app
+    
+    echis-mediators:
+        depends_on:
+            - openhim-core
+        container_name: echis-mediators
+        build:
+            context: echis-chanjo-mediators
+            dockerfile: Dockerfile.dev
+        restart: unless-stopped
+        networks:
+            - openhim
+            - hapi-fhir
+        ports:
+            - "8083:3000"
+        env_file:
+            - echis-chanjo-mediators/.env.example
+        volumes:
+            - ./echis-chanjo-mediators:/usr/app
+
+
+    chanjoke-auth:
+        depends_on:
+            - hapi-fhir-jpa
+        container_name: chanjoke-auth
+        build:
+            context: ../chanjoke-auth
+            dockerfile: Dockerfile.dev
+        restart: unless-stopped
+        networks:
+            - cloudbuild
+            - hapi-fhir
+        env_file:
+            - ../chanjoke-auth/.env
+        volumes:
+            - ../chanjoke-auth:/usr/chanjoke-auth
+        ports:
+            - "8088:3000"
+
+    hapi-fhir-config:
+        depends_on:
+            - hapi-fhir-jpa
+        container_name: hapi-fhir-config
+        networks:
+            - cloudbuild
+        build: 
+            context: ../hapi-fhir-config
+            dockerfile: Dockerfile
+        
+
+volumes:
+    chanjo-mongodb-data:
+    hapi-fhir-postgres:
+    hapi:

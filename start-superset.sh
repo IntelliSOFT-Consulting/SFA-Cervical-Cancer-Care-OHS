@@ -1,0 +1,1 @@
+docker compose -f superset/docker-compose-non-dev.yml up -d --force-recreate

@@ -1,0 +1,18 @@
+{
+  "version": "1.18.2",
+  "minimumCoreVersion": "5.2.0",
+  "protocol": "https",
+  "host": "sfa-comms.intellisoftkenya.com",
+  "port": "",
+  "title": "SFA-F HIM Console",
+  "footerTitle": "OpenHIM Administration Console",
+  "footerPoweredBy": "<a href='http://openhim.org/' target='_blank'>Powered by OpenHIM</a>",
+  "loginBanner": "",
+  "mediatorLastHeartbeatWarningSeconds": 60,
+  "mediatorLastHeartbeatDangerSeconds": 120,
+  "showLoginForm": true,
+  "ssoEnabled": true,
+  "keyCloakUrl": "https://sfa-auth.intellisoftkenya.com",
+  "keyCloakRealm": "master",
+  "keyCloakClientId": "openhim-oauth"
+}
